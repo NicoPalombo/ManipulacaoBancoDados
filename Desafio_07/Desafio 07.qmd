@@ -1,0 +1,162 @@
+---
+title: "Desafio 07"
+author: "Nicolas Palombo Lucas"
+format: html
+editor: visual
+---
+
+# Parte 1 Cópia e Inserção de Dados
+
+```{r}
+library(RSQLite)
+library(tidyverse)
+library(dbplyr)
+if(!"discoCopy.db" %in% list.files("~/dados/")){
+  file.copy("~/dados/disco.db", "~/dados/discoCopy.db")
+}
+```
+
+```{r}
+Dbz <- dbConnect(SQLite(), "~/dados/discoCopy.db")
+```
+
+```{r}
+dbListTables(Dbz)
+```
+
+```{r}
+if ("instruments" %in% dbListTables(Dbz)) {
+  dbRemoveTable(Dbz, "instruments")
+}
+dbExecute(Dbz, "CREATE TABLE instruments
+          (AlbumId INTEGER,
+          TrackId INTEGER,
+          ElectricGuitar INTEGER,
+          Singer INTEGER,
+          Trumpet INTEGER)")
+```
+
+```{r}
+dbListFields(Dbz, "instruments")
+```
+
+```{r}
+#dbExecute(Dbz, "DROP TABLE instruments")
+```
+
+```{r}
+dbListTables(Dbz)
+```
+
+```{r}
+sql <- "SELECT ArtistId FROM artists WHERE Name = ?"
+query <- dbSendQuery(Dbz, sql)
+dbBind(query, list("Gilberto Gil"))
+aId <- dbFetch(query)
+dbClearResult(query)
+```
+
+```{r}
+dbExecute(Dbz,"INSERT INTO instruments
+VALUES ('85','1075', 0, 1, 0),
+('85','1078', 0, 1, 0); ")
+```
+
+```{r}
+dbGetQuery(Dbz, "SELECT * FROM instruments")
+```
+
+```{r}
+if ("mtcars" %in% dbListTables(Dbz)) {
+  dbRemoveTable(Dbz, "mtcars")
+}
+dbWriteTable(Dbz, "mtcars", mtcars)
+dbListTables(Dbz)
+```
+
+```{r}
+dbGetQuery(Dbz, "SELECT * FROM mtcars") %>% head(3)
+```
+
+```{r}
+Avg <- mtcars %>%
+  summarise_all(function(x) round(mean(x), 2))
+Avg 
+```
+
+```{r}
+#append concatena uma tabela nova a dados existentes
+dbWriteTable(Dbz, "mtcars", Avg, append = TRUE)
+dbGetQuery(Dbz, "SELECT * FROM mtcars") %>% tail(3)
+```
+
+```{r}
+dbWriteTable(Dbz, "mtcars", mtcars, overwrite = TRUE)
+dbGetQuery(Dbz, "SELECT * FROM mtcars") %>% tail(3)
+```
+
+```{r}
+cuts <- dbSendQuery(Dbz, "SELECT * FROM mtcars WHERE cyl = 4")
+while(!dbHasCompleted(cuts)){
+  chunk <- dbFetch(cuts, n = 5)
+  print(nrow(chunk))
+}
+```
+
+```{r}
+dbClearResult(cuts)
+```
+
+```{r}
+dbDisconnect(Dbz)
+if("discoCopy.db" %in% list.files("~/dados/")){
+  file.remove("~/dados/discoCopy.db")
+}
+```
+
+# Parte 2 - Criação de Banco de Dados
+
+```{r}
+airports <- read_csv("~/dados/airports.csv", col_types = "cccccdd")
+airlines <- read_csv("~/dados/airlines.csv", col_types = "cc")
+air <- dbConnect(SQLite(), dbname = "~/dados/air.db")
+dbWriteTable(air, name = "airports", airports)
+dbWriteTable(air, name = "airlines", airlines)
+dbListTables(air)
+```
+
+```{r}
+dbDisconnect(air)
+if("air.db" %in% list.files("~/dados/")){
+  file.remove("~/dados/air.db")
+}
+```
+
+# Parte 3
+
+```{r}
+dbp <- dbConnect(SQLite(), "~/dados/disco.db")
+track <- tbl(dbp, "tracks")
+track %>% head(3)
+```
+
+```{r}
+meantrack <- track %>%
+  group_by(AlbumId) %>%
+  summarise(AvLen = mean(Milliseconds, na.rm = TRUE),
+            AvCost = mean(UnitPrice, na.rm = TRUE))
+meantrack
+```
+
+```{r}
+meantrack %>% show_query()
+```
+
+```{r}
+mT <- meantrack %>% collect()
+mT
+```
+
+```{r}
+dbDisconnect(dbp)
+```
