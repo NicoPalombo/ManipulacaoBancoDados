@@ -1,0 +1,139 @@
+---
+title: "D4t"
+format: html
+editor: visual
+runtime: shiny 
+---
+
+Membros:
+
+Gabriel Braga RA:247345;
+
+Nicolas Palombo RA:277214;
+
+Samuel Dias RA:247374
+
+```{r}
+# ============================================================
+# Carregar pacotes essenciais
+# ============================================================
+library(tidyverse)   # Inclui dplyr, readr, ggplot2
+library(dplyr)       # Manipulação de dados
+library(readr)       # Leitura de CSVs
+library(leaflet)     # Mapas interativos
+library(scales)      # Para normalizar variáveis (rescale)
+library(shiny)       # Inputs interativos
+```
+
+```{r}
+# ============================================================
+# Caminhos dos arquivos (não carregando tudo na memória)
+# ============================================================
+arquivo_voos <- "flights.csv.zip"
+arquivo_aeroportos <- "airports.csv"
+
+```
+
+```{r}
+# ============================================================
+# Função principal para analisar a aeronave
+# ============================================================
+analisa_aeronave <- function(tail_number, arquivo_voos, arquivo_aeroportos) {
+  
+  # 1. Ler aeroportos (pequeno, cabe na memória)
+  airports <- read_csv(arquivo_aeroportos)
+  
+  # 2. Preparar lista para acumular voos
+  voos_aeronave <- list()
+  
+  # 3. Callback para ler chunks do arquivo de voos
+  callback <- function(df, pos) {
+    filtro <- df %>% filter(TAIL_NUMBER == tail_number)
+    if (nrow(filtro) > 0) {
+      voos_aeronave[[length(voos_aeronave) + 1]] <<- filtro
+    }
+  }
+  
+  # 4. Ler CSV chunked
+  read_csv_chunked(
+    file = arquivo_voos,
+    callback = SideEffectChunkCallback$new(callback),
+    chunk_size = 500000
+  )
+  
+  # 5. Consolidar os dados
+  voos_aeronave_df <- bind_rows(voos_aeronave) %>%
+    arrange(YEAR, MONTH, DAY, SCHEDULED_DEPARTURE) %>%
+    mutate(
+      velocidade_mph = DISTANCE / (AIR_TIME / 60)  # mph
+    )
+  
+  # 6. Adicionar coordenadas de origem e destino
+  voos_aeronave_df <- voos_aeronave_df %>%
+    left_join(airports %>% select(IATA_CODE, LATITUDE, LONGITUDE),
+              by = c("ORIGIN_AIRPORT" = "IATA_CODE")) %>%
+    rename(orig_lat = LATITUDE, orig_lon = LONGITUDE) %>%
+    left_join(airports %>% select(IATA_CODE, LATITUDE, LONGITUDE),
+              by = c("DESTINATION_AIRPORT" = "IATA_CODE")) %>%
+    rename(dest_lat = LATITUDE, dest_lon = LONGITUDE)
+  
+  # 7. Escala de peso das linhas
+  peso_linhas <- scales::rescale(voos_aeronave_df$velocidade_mph, to = c(1, 5))
+  
+  # 8. Criar mapa
+  mapa <- leaflet(voos_aeronave_df) %>%
+    addTiles() %>%
+    addPolylines(
+      lng = ~c(orig_lon, dest_lon),
+      lat = ~c(orig_lat, dest_lat),
+      color = "blue",
+      weight = peso_linhas,
+      opacity = 0.6,
+      label = ~paste0(ORIGIN_AIRPORT, " → ", DESTINATION_AIRPORT,
+                      "<br>Velocidade média: ", round(velocidade_mph, 1), " mph")
+    ) %>%
+    addCircleMarkers(~orig_lon, ~orig_lat, radius = 3, color = "green", label = ~ORIGIN_AIRPORT) %>%
+    addCircleMarkers(~dest_lon, ~dest_lat, radius = 3, color = "red", label = ~DESTINATION_AIRPORT)
+  
+  # 9. Retornar resultados
+  return(list(
+    tabela = voos_aeronave_df,
+    grafico = mapa
+  ))
+}
+
+```
+
+```{r, context="server"}
+# Pegar alguns tail_numbers como exemplos (100.000 linhas)
+sample_tail <- read_csv(arquivo_voos, n_max = 100) %>%
+  distinct(TAIL_NUMBER) %>%
+  pull(TAIL_NUMBER)
+
+# Reativo para o tail_number selecionado
+resultado <- reactive({
+  req(input$tail_number)
+  analisa_aeronave(input$tail_number, arquivo_voos, arquivo_aeroportos)
+})
+
+```
+
+```{r}
+# Dropdown interativo
+selectInput("tail_number", "Escolha a aeronave:", choices = sample_tail, selected = sample_tail[1])
+
+```
+
+```{r}
+renderTable({
+  head(resultado()$tabela, 50)
+})
+
+```
+
+```{r}
+renderLeaflet({
+  resultado()$grafico
+})
+
+```
