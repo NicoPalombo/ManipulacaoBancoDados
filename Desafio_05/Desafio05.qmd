@@ -1,0 +1,106 @@
+---
+title: "Desafio 05"
+author: "Nicolas Palombo 277214"
+format: html
+editor: visual
+---
+
+```{r}
+library(RSQLite)
+```
+
+```{r}
+db <- dbConnect(SQLite(), "~/dados/disco.db")
+db
+```
+
+```{r}
+dbListTables(db)
+```
+
+```{r}
+dbListFields(db,"albums")
+```
+
+```{r}
+album_db = dbGetQuery(db, "SELECT * FROM albums")
+head(album_db)
+```
+
+```{r}
+#Selecione as colunas trackid, name, composer e unitprice. Ordene o objeto resultante por unitprice.
+type = "SELECT trackid, name, composer, unitprice FROM tracks ORDER BY unitprice"
+res = dbGetQuery(db, type)
+head(res)
+```
+
+```{r}
+#Quais são as cidades de todos os clientes, ordenadas por nome de cidade?
+city = 'SELECT city FROM customers ORDER BY city'
+ex3a = dbGetQuery(db, city)
+head(ex3a)
+
+```
+
+```{r}
+#Quais são as cidades distintas  de todos os clientes, ordenadas por nome de cidade?
+cityd = 'SELECT DISTINCT city FROM customers ORDER BY city'
+ex3b = dbGetQuery(db, cityd)
+head(ex3b)
+```
+
+```{r}
+#Quais são todas as músicas do álbum 1?
+m1 = 'SELECT name, albumid FROM tracks WHERE albumid=1'
+am1 = dbGetQuery(db, m1)
+head(am1)
+```
+
+```{r}
+#Limitando-se a 5 registros, após ordenação por nome, quais são os nomes, ID de álbum e ID de mídia de músicas com mídias de tipo 1 ou 2?
+m1_2 = paste('SELECT name, albumid, mediatypeid FROM tracks',
+            'WHERE mediatypeid IN (1, 2)',
+            'ORDER BY name LIMIT 5')
+dbGetQuery(db, m1_2)
+```
+
+```{r}
+#Quais são as músicas e identificadores de faixa e álbum produzidas pelo artista que identificador 12?
+m12 = paste('SELECT tracks.trackid, tracks.name, tracks.albumid, albums.artistid',
+            'FROM tracks',
+            'INNER JOIN albums ON albums.albumid = tracks.albumid',
+            'WHERE albums.artistid = 12')
+dbGetQuery(db, m12)
+```
+
+```{r}
+#Quais são as faixas cujos nomes começam com qualquer caracter seguido de 'ere' e terminam com qualquer expressão?
+ere = "SELECT trackid, name FROM tracks WHERE name GLOB '?ere*'"
+dbGetQuery(db, ere)[1:5,]
+```
+
+```{r}
+#Quais são as faixas cujos nomes possuem algum dígito?
+ch = "SELECT trackid, name FROM tracks WHERE name GLOB '*[0-9]*'"
+dbGetQuery(db, ch)[1:5,]
+```
+
+```{r}
+#Quantas faixas por disco?
+num = 'SELECT albumid, COUNT(trackid) FROM tracks GROUP BY albumid'
+dbGetQuery(db, num)[1:5,]
+```
+
+```{r}
+#Quantas faixas por disco para o album 1?
+am_1 = paste('SELECT albumid, COUNT(trackid)','FROM tracks GROUP BY albumid','HAVING albumid=1')
+dbGetQuery(db, am_1)
+
+```
+
+```{r}
+#Quais são os nomes de cada faixa com os respectivos títulos dos álbums?
+an = paste('SELECT trackid, name, title FROM tracks',
+'INNER JOIN albums ON albums.albumid=tracks.albumid')
+dbGetQuery(db, an)[1:5,]
+```
