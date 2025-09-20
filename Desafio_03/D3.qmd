@@ -1,0 +1,81 @@
+---
+title: "D3"
+author: "Nicolas Palombo"
+format: pdf
+editor: visual
+---
+
+## 
+
+Neste documento será apresentado como é possível carregar arquivos em formato distinto do csv, formato esse mais usado. O banco de dados utilizado foi o "Motor Trend Car Road Tests" em JSONe o banco de dados "House Prices" para Parquet. Ambos datasets foram tirados do site: <https://www.tablab.app>
+
+Carregando as bibliotecas necessárias:\
+
+```{r}
+library(arrow)
+library(dplyr)
+library(jsonlite)
+library(rjson)
+library(bench)
+library(ndjson)
+```
+
+Explicação dos pacotes utilizados:
+
+**Arrow:** O pacote *arrow* fornece acesso a muitos dos recursos da biblioteca Apache Arrow em C++. Entre suas diversas funcionalidades, destacam-se a leitura e escrita de arquivos no formato Parquet.
+
+**Jsonlite:** Um analisador e gerador de JSON rápido e otimizado para dados estatísticos, oferecendo ferramentas simples e flexíveis para trabalhar com JSON em R.
+
+**NDJSON:** Permite a leitura de objetos NDJSON ou NDJSON comprimidos
+
+**Bench:** Fornece ferramentas para analisar com precisão a execução de expressões em R.
+
+Principais colunas do bench:
+
+expression -\> código que foi medido
+
+min -\> menor tempo de execução
+
+median -\> mediana dos tempos de execução
+
+itr/sec -\> número de iterações por segundo
+
+mem_alloc -\> memória alocada durante a execução
+
+gc/sec -\> quantas vezes o garbage collector foi chamado por segundo ( quanto mais alto o valor maior o esforço de memória)
+
+Abrindo o parquet
+
+```{r}
+house_price_df <- read_parquet("~/dados/house-price.parquet")
+head(house_price_df)
+```
+
+```{r}
+bench::mark(
+  arrow =read_parquet("~/dados/house-price.parquet")
+)
+```
+
+Como foram usados 2 métodos para abrir o arquivo .json, primeiramente será testado qual o método mais rápido
+
+```{r}
+res <- bench::mark(
+  jsonlite = 
+     invisible(capture.output(jsonlite::stream_in(file("~/dados/mtcars-parquet.json"))))
+  ,
+  ndjson   = 
+     invisible(capture.output(ndjson::stream_in("~/dados/mtcars-parquet.json")))
+  ,
+  check = FALSE
+)
+res
+
+```
+
+Visto que ndjson é mais rápido do que jsonlite faremos uma visualização do arquivo usando o ndjson
+
+```{r}
+mtcars_df <- ndjson::stream_in("~/dados/mtcars-parquet.json")
+head(mtcars_df)
+```
