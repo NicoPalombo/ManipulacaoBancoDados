@@ -1,0 +1,116 @@
+---
+title: "Desafio 08"
+author: "Nicolas Palombo"
+format: html
+editor: visual
+---
+
+## Desafio 08
+
+## **Fonte do problema:**
+
+Estes dados são de uma iniciativa de publicidade de desempenho de alunos e professores nas Universidades Americanas. A UW-Madison disponibilizou os seus dados online (no Office of the Registrar: <https://registrar.wisc.edu/>), e alguém trouxe os dados para uma competição no Kaggle (<https://www.kaggle.com/Madgrades/uw-madison-courses>). Nesta atividades, examinaremos disciplinas oferecidas no assunto de Estatística pela referida Universidade. O esquema do banco de dados é apresentado na figura abaixo.
+
+## **Observações**
+
+-   Esta tarefa não deve ser realizada no site jupyter.ime.unicamp.br ;
+
+-   Você deve realizar o download dos dados para o computador que estiver utilizando e, então, iniciar a atividade;
+
+-   Recomenda-se a utilização dos seguintes pacotes:
+
+    -   `RSQLite`
+
+-   Toda a atividade deve ser realizada utilizando-se apenas de SQLite (i.e., não utilize `dbplyr`);
+
+## **Atividade**
+
+1.  Baixe o arquivo `uwmadison.sqlite3`. Conecte-se a ele usando o pacote `RSQLite`, armazenando a conexão em uma variável `conn`.
+
+2.  Quem são e quantos são os professores que lecionaram disciplinas cujo tópico era estatística (`subjects.abbreviation='STAT'`);
+
+3.  O GPA americano é definido numa escala de 0 a 4, em que A = 4, AB = 3.5, B = 3, BC = 2.5, C = 2, D = 1 e F = 0. Determinando a nota média de cada oferecimento pela ponderação da quantidade de alunos em cada extrato com os valores numéricos de cada conceito, indique (no que se referente a disciplinas no assunto de estatística):
+
+-   Quem é o professor mais difícil?
+
+-   Quem é o professor mais fácil?
+
+-   Qual é a disciplina mais difícil?
+
+-   Qual é a disciplina mais fácil?
+
+4.  Desconecte do banco de dados.
+
+```{r}
+library(RSQLite)
+```
+
+```{r}
+conn <- dbConnect(SQLite(), "~/dados/database.sqlite3")
+```
+
+```{r}
+filter_professors <- "
+SELECT DISTINCT i.name AS professor
+FROM instructors i
+JOIN teachings t ON i.id = t.instructor_id
+JOIN sections sec ON t.section_uuid = sec.uuid
+JOIN course_offerings co ON sec.course_offering_uuid = co.uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects s ON sm.subject_code = s.code
+WHERE s.abbreviation = 'STAT';
+"
+
+professores_stat <- dbGetQuery(conn, filter_professors)
+n_professores <- nrow(professores_stat)
+
+head(professores_stat,10)
+n_professores
+```
+
+```{r}
+filter_gpa <- "
+SELECT 
+  co.uuid AS course_offering_uuid,
+  co.name AS course_name,
+  i.name AS professor,
+  CAST(
+    (g.a_count*4 + g.ab_count*3.5 + g.b_count*3 + g.bc_count*2.5 + g.c_count*2 + g.d_count*1 + g.f_count*0)
+    / 
+    (g.a_count + g.ab_count + g.b_count + g.bc_count + g.c_count + g.d_count + g.f_count)
+    AS FLOAT
+  ) AS gpa_medio
+FROM course_offerings co
+JOIN sections sec ON sec.course_offering_uuid = co.uuid
+JOIN teachings t ON t.section_uuid = sec.uuid
+JOIN instructors i ON t.instructor_id = i.id
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects s ON sm.subject_code = s.code
+JOIN grade_distributions g ON g.course_offering_uuid = co.uuid
+WHERE s.abbreviation = 'STAT';
+"
+
+gpa_oferecimentos <- dbGetQuery(conn, filter_gpa)
+```
+
+```{r}
+professor_dificil <- gpa_oferecimentos[which.min(gpa_oferecimentos$gpa_medio), c("professor","gpa_medio")]
+professor_facil   <- gpa_oferecimentos[which.max(gpa_oferecimentos$gpa_medio), c("professor","gpa_medio")]
+
+professor_dificil
+professor_facil
+```
+
+```{r}
+gpa_cursos <- aggregate(gpa_medio ~ course_name, data = gpa_oferecimentos, FUN = mean)
+
+disciplina_dificil <- gpa_cursos[which.min(gpa_cursos$gpa_medio), ]
+disciplina_facil   <- gpa_cursos[which.max(gpa_cursos$gpa_medio), ]
+
+disciplina_dificil
+disciplina_facil
+```
+
+```{r}
+dbDisconnect(conn)
+```
