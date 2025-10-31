@@ -1,0 +1,91 @@
+---
+title: "Desafio 14"
+author: "Nicolas Palombo"
+format: html
+editor: visual
+---
+
+```{python}
+import plotnine
+from plotnine.data import diamonds
+#Por questões de boas maneiras ao lidar com o banco de dados
+diamonds_copy = diamonds.copy()
+diamonds_copy["carat"] = diamonds_copy["carat"]*10
+diamonds_copy["price"] = diamonds_copy["price"]/100
+from plotnine import ggplot, aes, geom_point, geom_smooth, labs, theme_minimal, scale_y_continuous, scale_x_continuous, geom_jitter, geom_boxplot, theme_bw, facet_grid, facet_wrap, theme
+```
+
+Crie uma visualização de dados que descreva a associação existente entre as variáveis peso (carat) e preço (price). Que ações você tomou para garantir que você produziu um gráfico de boa qualidade? Escreva um parágrafo comunicando os seus achados.
+
+
+```{python}
+plot_a = (
+  ggplot(diamonds_copy)
+  + aes(x = 'carat', y = 'price')
+  + geom_point(alpha=0.4, color='steelblue')
+  +labs(
+        title='Relação entre Peso (Carat) e Preço dos Diamantes',
+        x='Peso (Carat)',
+        y='Preço (USD)'
+    )
+    + theme_minimal()
+)
+plot_a
+```
+
+```{python}
+plot_n = (
+  ggplot(diamonds)
+  + aes(x = 'carat', y = 'price')
+  + geom_point(alpha=0.4, color='steelblue')
+  +labs(
+        title='Relação entre Peso (Carat) e Preço dos Diamantes',
+        x='Peso (Carat)',
+        y='Preço (USD)'
+    )
+    + theme_minimal()
+)
+plot_n
+```
+R: Através dos dois gráficos é possível observar que há uma variação no preço dos diamantes dado seu peso em quilates, entretanto como será observado nas próximas questões, fatores como corte e clareza afetam o valor para o mesmo peso, por isso o gráfico parece tão inconstante para a mesma "faixa de peso"
+
+
+A relação identificada na questão anterior é a mesma relação presente nos diferentes cortes de diamantes? Crie uma visualização que demonstre seus achados eficientemente. Descreva sua conclusão em um parágrafo.
+
+```{python}
+plot_by_group  = (
+    ggplot(diamonds)
+    + aes(x = "carat", y = "price", color = "cut")
+    + geom_point()
+    + facet_grid(cols="cut")
+    + theme_bw()
+    + labs(
+        title='Relação entre Corte (Cut) e Preço dos Diamantes',
+        x='Corte()',
+        y='Preço (USD)'
+    )
+    + theme_minimal()
+)
+plot_by_group
+```
+R:Como era esperado, quanto melhor o corte e maior seu peso, maior o valor do diamante 
+
+
+Crie uma visualização que mostre a relação entre preço e peso do diamante, considerando as diferentes combinações de qualidade de corte, cor e clareza do diamante. Quais foram as dificuldades encontradas? A relação entre preço e peso é a mesma para diferentes configurações de diamantes?
+
+```{python}
+plot_multivariate = (
+    ggplot(diamonds.sample(5000))  # Amostragem para melhor performance
+    + aes(x='carat', y='price', color='color')
+    + geom_point(alpha=0.6, size=1)
+    + facet_grid('clarity ~ cut')
+    + labs(
+        title='Relação Peso vs Preço por Corte, Cor e Clareza',
+        x='Peso (Carat)',
+        y='Preço (USD)'
+    )
+    + theme_minimal()
+)
+plot_multivariate
+```
+R:Como esperado, quanto melhor a clareza do diamante, melhor o corte, e maior o peso, esses fatores mostram-se fundamentais para realizar o preço da oferta 
