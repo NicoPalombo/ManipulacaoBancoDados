@@ -1,0 +1,78 @@
+---
+title: "Desafio 15"
+format: html
+editor: visual
+---
+```{r}
+library(JuliaCall)
+Sys.setenv(JULIA_HOME = "C:/Users/neard/AppData/Local/Programs/Julia-1.12.1/bin")
+julia_setup()
+```
+
+```{julia}
+using BenchmarkTools, Distributed, Statistics, Plots
+```
+
+
+```{julia}
+function tarefa_demorada(n)
+    soma = 0
+    for i in 1:n
+        soma += i * i 
+    end
+    return soma
+end
+
+# Dados para processar
+numeros = [10000000, 10000000, 10000000, 10000000]
+```
+
+```{julia}
+println("Processamento SÉRIE:")
+@time begin
+    resultados_serie = []
+    for n in numeros
+        push!(resultados_serie, tarefa_demorada(n))
+    end
+end
+```
+
+```{julia}
+println("processamento PARALELO:")
+@time begin
+    resultados_paralelo = @distributed (+) for n in numeros
+        tarefa_demorada(n)
+    end
+end
+```
+
+```{julia}
+# Mostrar resultados
+println("\n Resultados:")
+println("Série:   $(resultados_serie)")
+println("Paralelo: $resultados_paralelo")
+println("São iguais? $(sum(resultados_serie) == resultados_paralelo)")
+```
+
+```{julia}
+# Série
+@time begin
+    a = tarefa_demorada(5000000)
+    b = tarefa_demorada(5000000)
+end
+
+# Paralelo  
+@time begin
+    task1 = @spawn tarefa_demorada(5000000)
+    task2 = @spawn tarefa_demorada(5000000)
+    c = fetch(task1) + fetch(task2)
+end
+```
+
+```{julia}
+println("""
+Conclusão:
+Paralelo é mais rápido quando tem várias tarefas pesadas!
+Use @distributed para loops e @spawn para tarefas separadas.
+""")
+```
